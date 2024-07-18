@@ -9,35 +9,21 @@ std::queue<int> mQueue;
 std::mutex mlock;
 std::condition_variable cv;
 
+template <typename T>
+void privodeVal(T val) {
+  std::unique_lock<std::mutex> lk(mlock);
+  mQueue.push(static_cast<int>(val));
+  lk.unlock();
+  cv.notify_one();
+}
+
 void producers() {
-  mlock.lock();
-  mQueue.push(1);
-  mlock.unlock();
-  cv.notify_one();
-  mlock.lock();
-  mQueue.push(2);
-  mlock.unlock();
-  cv.notify_one();
-  mlock.lock();
-  mQueue.push(3);
-  mlock.unlock();
-  cv.notify_one();
-  mlock.lock();
-  mQueue.push(4);
-  mlock.unlock();
-  cv.notify_one();
-  mlock.lock();
-  mQueue.push(5);
-  mlock.unlock();
-  cv.notify_one();
-  mlock.lock();
-  mQueue.push(11);
-  mlock.unlock();
-  cv.notify_one();
-  mlock.lock();
-  mQueue.push(0);
-  mlock.unlock();
-  cv.notify_one();
+  privodeVal(1);
+  privodeVal(2);
+  privodeVal(3.14);
+  privodeVal(8);
+  privodeVal(11);
+  privodeVal(0);
   // 多通知的情况
   cv.notify_one();
   cv.notify_one();
@@ -61,6 +47,7 @@ void costormer() {
 int main() {
   std::thread t1(producers);
   // 这里阻塞执行 join 和单线程无区别
-  costormer();
+  std::thread t2(costormer);
   t1.join();
+  t2.join();
 }
