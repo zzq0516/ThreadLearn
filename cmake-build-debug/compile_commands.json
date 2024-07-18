@@ -1,0 +1,8 @@
+[
+{
+  "directory": "C:/Users/aipup/Desktop/Leetcode/ThreadLearn/cmake-build-debug",
+  "command": "\"D:\\CLion\\CLion 2024.1.4\\bin\\mingw\\bin\\g++.exe\"   -g -std=gnu++20 -fdiagnostics-color=always -o CMakeFiles\\ThreadLearn.dir\\main.cpp.obj -c C:\\Users\\aipup\\Desktop\\Leetcode\\ThreadLearn\\main.cpp",
+  "file": "C:/Users/aipup/Desktop/Leetcode/ThreadLearn/main.cpp",
+  "output": "CMakeFiles/ThreadLearn.dir/main.cpp.obj"
+}
+]
