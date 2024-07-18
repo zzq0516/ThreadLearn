@@ -1,3 +1,4 @@
+#include <condition_variable>
 #include <iostream>
 #include <iterator>
 #include <mutex>
@@ -6,45 +7,54 @@
 
 std::queue<int> mQueue;
 std::mutex mlock;
+std::condition_variable cv;
 
 void producers() {
   mlock.lock();
   mQueue.push(1);
   mlock.unlock();
+  cv.notify_one();
   mlock.lock();
   mQueue.push(2);
   mlock.unlock();
+  cv.notify_one();
   mlock.lock();
   mQueue.push(3);
   mlock.unlock();
+  cv.notify_one();
   mlock.lock();
   mQueue.push(4);
   mlock.unlock();
+  cv.notify_one();
   mlock.lock();
   mQueue.push(5);
   mlock.unlock();
+  cv.notify_one();
   mlock.lock();
   mQueue.push(11);
   mlock.unlock();
+  cv.notify_one();
   mlock.lock();
   mQueue.push(0);
   mlock.unlock();
+  cv.notify_one();
+  // 多通知的情况
+  cv.notify_one();
+  cv.notify_one();
 }
 
 void costormer() {
   while (true) {
-    while (!mQueue.empty()) {
-      mlock.lock();
-      auto val = mQueue.front();
-      if (val == 0) {
-        mQueue.pop();
-        mlock.unlock();
-        return;
-      }
-      std::cout << "costormer get val:" << val << std::endl;
-      mQueue.pop();
-      mlock.unlock();
+    std::unique_lock<std::mutex> lk(mlock);
+    cv.wait(lk, []() { return !mQueue.empty(); });
+    // 现在已经上锁了不要重复上锁
+    auto val = mQueue.front();
+    mQueue.pop();
+    lk.unlock();
+    if (val == 0) {
+      return;
     }
+    std::cout << "constormer get " << val << std::endl;
   }
 }
 
