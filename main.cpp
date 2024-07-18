@@ -18,11 +18,9 @@ void privodeVal(T val) {
 }
 
 void producers() {
-  privodeVal(1);
-  privodeVal(2);
-  privodeVal(3.14);
-  privodeVal(8);
-  privodeVal(11);
+  for (int i = 1; i < 100; i++) {
+    privodeVal(i);
+  }
   privodeVal(0);
   // 多通知的情况
   cv.notify_one();
@@ -48,6 +46,8 @@ int main() {
   std::thread t1(producers);
   // 这里阻塞执行 join 和单线程无区别
   std::thread t2(costormer);
+  std::thread t3(costormer);
   t1.join();
   t2.join();
+  t3.join();
 }
