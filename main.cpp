@@ -31,32 +31,25 @@ void privodeVal(T val) {
 void producers(int id) {
   while (true) {
     std::unique_lock<std::mutex> lkProducer(mProductLock);
-    cv1.wait(lkProducer, []() { return true; });
-    if (mQueue.empty()) {
-      if (valNow < PRODUCT_MAX) {
-        std::cout << std::format("producers id:{} will product val {}\n", id,
-                                 valNow);
-        privodeVal(valNow);
-        valNow++;
-      } else {
-        privodeVal(0);
-        std::cout << std::format("quit pro {}\n", id);
-        return;
-      }
-      lkProducer.unlock();
+    cv1.wait(lkProducer, []() { return mQueue.size() <= 10; });
+    if (valNow < PRODUCT_MAX) {
+      std::cout << std::format("producers id:{} will product val {}\n", id,
+                               valNow);
+      privodeVal(valNow);
+      valNow++;
     } else {
+      privodeVal(0);
       lkProducer.unlock();
-      if (mQueue.front() == 0) {
-        std::cout << std::format("quit pro {}\n", id);
-        return;
-      }
+      std::cout << std::format("quit pro {}\n", id);
+      return;
     }
+    lkProducer.unlock();
   }
 }
 
 void costormer(int id) {
   while (true) {
-    // std::this_thread::sleep_for(std::chrono::microseconds(1));
+    std::this_thread::sleep_for(std::chrono::microseconds(10));
     std::unique_lock<std::mutex> lk(mlock);
     cv.wait(lk, []() { return !mQueue.empty(); });
     // 现在已经上锁了不要重复上锁
