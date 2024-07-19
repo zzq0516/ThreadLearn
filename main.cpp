@@ -1,82 +1,55 @@
 #include <algorithm>
+#include <chrono>
 #include <condition_variable>
 #include <cstddef>
+#include <ctime>
 #include <format>
 #include <iostream>
 #include <iterator>
 #include <mutex>
+#include <ostream>
 #include <queue>
 #include <thread>
 #include <utility>
 #include <valarray>
 #include <vector>
 
-constexpr int PRODUCT_MAX = 200;
-
-std::queue<int> mQueue;
-std::mutex mlock;
-std::mutex mProductLock;
-std::condition_variable cv;
-std::condition_variable cv1;
-int valNow = 1;
-
-template <typename T>
-void privodeVal(T val) {
-  std::unique_lock<std::mutex> lk(mlock);
-  mQueue.push(static_cast<int>(val));
-  lk.unlock();
-  cv.notify_all();
-}
-
-void producers(int id) {
-  while (true) {
-    std::unique_lock<std::mutex> lkProducer(mProductLock);
-    cv1.wait(lkProducer, []() { return mQueue.size() <= 10; });
-    if (valNow < PRODUCT_MAX) {
-      std::cout << std::format("producers id:{} will product val {}\n", id,
-                               valNow);
-      privodeVal(valNow);
-      valNow++;
-    } else {
-      privodeVal(0);
-      lkProducer.unlock();
-      std::cout << std::format("quit pro {}\n", id);
-      return;
-    }
-    lkProducer.unlock();
+#include "ThreadPool.h"
+long long calTask(int times, int beginVal) {
+  long long ans = 0;
+  for (int i = 0; i < times; i++) {
+    ans += beginVal;
+    beginVal++;
   }
+  std::this_thread::sleep_for(std::chrono::seconds(times));
+  std::cout << std::format("task {} finish\n", times);
+  return ans;
 }
 
-void costormer(int id) {
+void printTask(int id) {
   while (true) {
-    std::this_thread::sleep_for(std::chrono::microseconds(10));
-    std::unique_lock<std::mutex> lk(mlock);
-    cv.wait(lk, []() { return !mQueue.empty(); });
-    // 现在已经上锁了不要重复上锁
-    auto val = mQueue.front();
-    if (val != 0) mQueue.pop();
-    lk.unlock();
-    if (val == 0) {
-      std::cout << std::format("quit cos {}\n", id);
-      return;
-    }
-    std::cout << std::format("constormer id :{} get {}\n", id, val);
-    cv1.notify_all();
+    // std::cout << std::format("print Task id : {}\n", id);
+    std::this_thread::sleep_for(std::chrono::seconds(2));
   }
 }
 
 int main() {
-  std::vector<std::thread> threadVec;
-  for (size_t i = 0; i < 2; i++) {
-    std::thread costormerThread(costormer, i);
-    threadVec.push_back(std::move(costormerThread));
+  ThreadPool myThreadPool(8);
+  // auto val = myThreadPool.push(calTask, 10, 0);
+//  for (int i = 0; i < 3; i++) {
+//    myThreadPool.push(printTask, i);
+//  }
+  std::this_thread::sleep_for(std::chrono::seconds(1));::
+  std::cout << "begin cal\n";
+  // std::cout << val.get() << std::endl;
+  std::vector<std::future<long long>> res(16);
+  for (int i = 0; i < 16; i++) {
+    auto r = myThreadPool.push(calTask, i, 0);
+    res[i] = std::move(r);
   }
-  for (size_t i = 0; i < 2; i++) {
-    std::thread producersThread(producers, i);
-    threadVec.push_back(std::move(producersThread));
+  std::cout << "end cal\n";
+  for (int i = 0; i < 16; i++) {
+    std::cout << std::format("val is {}\n", res[i].get());
   }
-  for (size_t i = 0; i < threadVec.size(); i++) {
-    threadVec[i].join();
-  }
-  std::cout << "get there\n";
+  std::cout << "end print\n";
 }
