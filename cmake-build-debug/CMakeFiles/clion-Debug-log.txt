@@ -20,6 +20,6 @@ CMake Deprecation Warning:
 -- Check for working CXX compiler: D:/CLion/CLion 2024.1.4/bin/mingw/bin/g++.exe - skipped
 -- Detecting CXX compile features
 -- Detecting CXX compile features - done
--- Configuring done (1.3s)
+-- Configuring done (2.5s)
 -- Generating done (0.0s)
 -- Build files have been written to: C:/Users/aipup/Desktop/Leetcode/ThreadLearn/cmake-build-debug
