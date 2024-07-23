@@ -4,4 +4,7 @@ project(ThreadLearn)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_CXX_STANDARD 20)
 
-add_executable(ThreadLearn main.cpp)
+add_executable(ThreadLearn main.cpp
+        SpinMutex.h
+        ListAtomic.h
+        test.h)
