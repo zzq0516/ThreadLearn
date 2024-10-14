@@ -1,84 +1,100 @@
-#include <algorithm>
-#include <condition_variable>
-#include <cstddef>
-#include <format>
+#include <exception>
 #include <iostream>
-#include <iterator>
-#include <mutex>
-#include <queue>
+#include <memory>
+#include <stack>
 #include <thread>
-#include <utility>
-#include <valarray>
-#include <vector>
 
-constexpr int PRODUCT_MAX = 200;
-
-std::queue<int> mQueue;
-std::mutex mlock;
-std::mutex mProductLock;
-std::condition_variable cv;
-std::condition_variable cv1;
-int valNow = 1;
+// 空栈异常
+struct empty_stack : std::exception {
+    char const *what() const throw() {
+        return "empty stack!";
+    };
+};
 
 template <typename T>
-void privodeVal(T val) {
-    std::unique_lock<std::mutex> lk(mlock);
-    mQueue.push(static_cast<int>(val));
-    lk.unlock();
-    cv.notify_all();
+class stackThreadSafe {
+public:
+    stackThreadSafe() : mData(std::stack<int>()) {}
+
+    stackThreadSafe(stackThreadSafe const &other) {
+        // 这里这样设计是因为需要等待对面释放的锁之后才能进行拷贝
+        std::lock_guard<std::mutex> lock(other.mLock);
+        mData = other.mData;
+    }
+
+    // 删除拷贝赋值
+    stackThreadSafe &operator=(stackThreadSafe const &) = delete;
+
+    // 压栈
+    void push(T new_value) {
+        std::lock_guard<std::mutex> lock(mLock);
+        mData.push(new_value);
+    }
+
+    // 出栈
+    // 线程安全的堆栈类主要修改的是出栈接口
+    // std原有的出栈接口，由于得到top和pop是分离的
+    // 无法做到原子性
+    std::shared_ptr<T> pop() {
+        std::lock_guard<std::mutex> lock(mLock);
+        if (mData.empty()) {
+            throw empty_stack();
+        }
+        // 在修改堆栈前，分配出返回值
+        std::shared_ptr<T> res(std::make_shared<T>(mData.top()));
+        mData.pop();
+        return res;
+    }
+
+    // 接口2
+    void pop(T &value) {
+        std::lock_guard<std::mutex> lock(mLock);
+        if (mData.empty()) {
+            throw empty_stack();
+        }
+
+        value = mData.top();
+        mData.pop();
+    }
+
+    bool empty() const {
+        std::lock_guard<std::mutex> lock(mLock);
+        return mData.empty();
+    }
+
+private:
+    std::stack<T> mData;
+    mutable std::mutex mLock;
+};
+
+stackThreadSafe<int> stackTest;
+
+void testFunc1() {
+    for (int i = 0; i < 3; i++) {
+        stackTest.push(i);
+    }
 }
 
-void producers(int id) {
-    while (true) {
-        std::unique_lock<std::mutex> lkProducer(mProductLock);
-        cv1.wait(lkProducer, []() { return mQueue.size() <= 10; });
-        if (valNow < PRODUCT_MAX) {
-            std::cout << std::format("producers id:{} will product val {}\n",
-                                     id, valNow);
-            privodeVal(valNow);
-            valNow++;
-        } else {
-            privodeVal(0);
-            lkProducer.unlock();
-            std::cout << std::format("quit pro {}\n", id);
-            return;
-        }
-        lkProducer.unlock();
+void testFunc2() {
+    for (int i = 3; i < 9; i++) {
+        stackTest.push(i);
     }
 }
 
-void costormer(int id) {
-    while (true) {
-        std::this_thread::sleep_for(std::chrono::microseconds(10));
-        std::unique_lock<std::mutex> lk(mlock);
-        cv.wait(lk, []() { return !mQueue.empty(); });
-        // 现在已经上锁了不要重复上锁
-        auto val = mQueue.front();
-        if (val != 0) {
-            mQueue.pop();
+void testFunc3() {
+    while (1) {
+        while (!stackTest.empty()) {
+            auto i = stackTest.pop();
+            std::cout << *i << std::endl;
         }
-        lk.unlock();
-        if (val == 0) {
-            std::cout << std::format("quit cos {}\n", id);
-            return;
-        }
-        std::cout << std::format("constormer id :{} get {}\n", id, val);
-        cv1.notify_all();
     }
 }
 
-int main() {
-    std::vector<std::thread> threadVec;
-    for (size_t i = 0; i < 2; i++) {
-        std::thread costormerThread(costormer, i);
-        threadVec.push_back(std::move(costormerThread));
-    }
-    for (size_t i = 0; i < 2; i++) {
-        std::thread producersThread(producers, i);
-        threadVec.push_back(std::move(producersThread));
-    }
-    for (size_t i = 0; i < threadVec.size(); i++) {
-        threadVec[i].join();
-    }
-    std::cout << "get there\n";
+int main(int argc, char const *argv[]) {
+    std::thread thread2(testFunc2);
+    std::thread thread1(testFunc1);
+    std::thread thread3(testFunc3);
+    thread1.join();
+    thread2.join();
+    thread3.join();
 }
